@@ -1,1 +1,173 @@
-null
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  erp-internal:
+    driver: bridge
+  erp-public:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+services:
+  # PostgreSQL 16-alpine
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-postgres
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-erp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_pass}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: >
+      postgres  -c config_file=/etc/postgresql/postgresql.conf -c
+      listen_addresses='*'
+    networks:
+      - erp-internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-erp_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis 7-alpine
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: unless-stopped
+    logging: *default-logging
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD:-redis_pass} --appendonly yes
+      --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
+      --save 900 1 --save 300 10 --save 60 10000
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - erp-internal
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_pass}", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Go Core Service
+  core-service:
+    build:
+      context: ./apps/core-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: erp-core-service
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      GRPC_PORT: ${GRPC_PORT:-50051}
+      DATABASE_URL: postgres://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_pass}@postgres:5432/${POSTGRES_DB:-erp_db}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_pass}@redis:6379/0
+      ENV: development
+    ports:
+      - "${GRPC_PORT:-50051}:50051"
+    volumes:
+      - ./apps/core-service:/app
+    networks:
+      - erp-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # NestJS API Gateway
+  api-gateway:
+    build:
+      context: ./apps/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    container_name: erp-api-gateway
+    restart: unless-stopped
+    logging: *default-logging
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      PORT: ${API_PORT:-3000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_pass}@postgres:5432/${POSTGRES_DB:-erp_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_pass}@redis:6379/0
+      GO_SERVICE_URL: core-service:${GRPC_PORT:-50051}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_min_32_chars}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      REFRESH_EXPIRES: ${REFRESH_EXPIRES:-7d}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./apps/api-gateway:/app
+      - /app/node_modules
+    networks:
+      - erp-internal
+      - erp-public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+
+  # Angular Frontend
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: erp-frontend
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      API_URL: http://api-gateway:3000
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    networks:
+      - erp-public
+    depends_on:
+      - api-gateway
+
+  # Redis Commander  (dev only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: erp-redis-commander
+    restart: unless-stopped
+    profiles: [ "tools" ]
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_pass}
+      HTTP_USER: ${REDIS_CMDR_USER:-admin}
+      HTTP_PASSWORD: ${REDIS_CMDR_PASS:-admin}
+    ports:
+      - "${REDIS_CMDR_PORT:-8081}:8081"
+    networks:
+      - erp-internal
+    depends_on:
+      redis:
+        condition: service_healthy
