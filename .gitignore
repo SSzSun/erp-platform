@@ -1,0 +1,92 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Node / NestJS / Angular
+node_modules/
+dist/
+.angular/
+.nx/cache/
+*.js.map
+*.d.ts.map
+
+# Angular build output
+apps/frontend/dist/
+apps/frontend/.angular/
+
+# NestJS build output
+apps/api-gateway/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cache
+.npm/
+.yarn/
+.pnp.*
+.cache/
+
+# Go
+apps/core-service/bin/
+apps/core-service/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Proto generated files
+apps/core-service/proto/*.pb.go
+apps/api-gateway/src/proto/*.ts
+apps/api-gateway/src/proto/*.js
+!apps/core-service/proto/
+!apps/api-gateway/src/proto/
+
+# Docker
+docker-compose.override.yml
+
+# Database
+postgres/data/
+*.sql.bak
+*.dump
+
+# IDE & Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test & Coverage
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+e2e/results/
+
+# Misc
+*.tgz
+*.zip
+tmp/
+temp/
+.turbo/

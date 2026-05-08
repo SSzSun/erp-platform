@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package attendance;
+
+option go_package = "github.com/erp-platform/core-service/proto/attendance";
+
+// ──────────────────────────────────────────
+// Attendance Service
+// รับ log scan จากเครื่องสแกนนิ้ว / app check-in
+// ──────────────────────────────────────────
+service AttendanceService {
+  // บันทึก check-in / check-out จากเครื่องสแกน (high-load)
+  rpc RecordScan(ScanRequest) returns (ScanResponse);
+  // ดึงสรุปการเข้างานรายวัน
+  rpc GetDailySummary(DailySummaryRequest) returns (DailySummaryResponse);
+  // ดึงสรุปการเข้างานรายเดือน (ใช้คำนวณ OT)
+  rpc GetMonthlySummary(MonthlySummaryRequest) returns (MonthlySummaryResponse);
+  // stream การเข้างาน real-time สำหรับ dashboard
+  rpc WatchAttendance(WatchRequest) returns (stream AttendanceEvent);
+}
+
+enum ScanType {
+  SCAN_TYPE_UNSPECIFIED = 0;
+  CHECK_IN             = 1;
+  CHECK_OUT            = 2;
+}
+
+message ScanRequest {
+  string    employee_id  = 1;
+  ScanType  scan_type    = 2;
+  int64     timestamp    = 3; // Unix timestamp (ms)
+  string    device_id    = 4; // fingerprint scanner / mobile app
+  string    location     = 5; // optional: branch / gate
+}
+
+message ScanResponse {
+  bool   success      = 1;
+  string message      = 2;
+  int64  recorded_at  = 3;
+}
+
+message DailySummaryRequest {
+  string employee_id = 1;
+  string date        = 2; // "YYYY-MM-DD"
+}
+
+message AttendanceRecord {
+  string employee_id  = 1;
+  string date         = 2;
+  int64  check_in_at  = 3;
+  int64  check_out_at = 4;
+  double work_hours   = 5;
+  double ot_hours     = 6;
+  bool   is_late      = 7;
+  bool   is_absent    = 8;
+  string status       = 9; // "present" | "absent" | "late" | "half-day"
+}
+
+message DailySummaryResponse {
+  AttendanceRecord record = 1;
+}
+
+message MonthlySummaryRequest {
+  string employee_id = 1;
+  int32  year        = 2;
+  int32  month       = 3;
+}
+
+message MonthlySummaryResponse {
+  string employee_id      = 1;
+  int32  year             = 2;
+  int32  month            = 3;
+  int32  total_work_days  = 4;
+  int32  present_days     = 5;
+  int32  absent_days      = 6;
+  int32  late_days        = 7;
+  double total_work_hours = 8;
+  double total_ot_hours   = 9;
+  repeated AttendanceRecord daily_records = 10;
+}
+
+message WatchRequest {
+  string date     = 1; // "YYYY-MM-DD", empty = today
+  string location = 2; // empty = all
+}
+
+message AttendanceEvent {
+  string          employee_id = 1;
+  ScanType        event_type  = 2;
+  int64           timestamp   = 3;
+  AttendanceRecord summary    = 4;
+}

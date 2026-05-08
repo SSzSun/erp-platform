@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package payroll;
+
+option go_package = "github.com/erp-platform/core-service/proto/payroll";
+
+// ──────────────────────────────────────────
+// Payroll Calculation Service
+// NestJS calls Go via gRPC to compute payroll
+// ──────────────────────────────────────────
+service PayrollService {
+  // คำนวณเงินเดือนพนักงาน 1 คน
+  rpc CalculatePayroll(CalculatePayrollRequest) returns (PayrollResult);
+  // คำนวณเงินเดือนพนักงานทั้งหมดในรอบ (batch, server-streaming)
+  rpc ProcessPayrollBatch(PayrollBatchRequest) returns (stream PayrollResult);
+  // ดึงประวัติการจ่ายเงินเดือน
+  rpc GetPayrollHistory(PayrollHistoryRequest) returns (PayrollHistoryResponse);
+}
+
+message CalculatePayrollRequest {
+  string employee_id    = 1;
+  double base_salary    = 2;
+  int32  year           = 3;
+  int32  month          = 4;
+  // OT hours in this period
+  double ot_hours       = 5;
+  // Leave days without pay
+  int32  unpaid_leave_days = 6;
+  repeated Allowance allowances = 7;
+}
+
+message Allowance {
+  string type   = 1; // e.g. "transport", "meal", "position"
+  double amount = 2;
+}
+
+message PayrollResult {
+  string employee_id      = 1;
+  int32  year             = 2;
+  int32  month            = 3;
+  double base_salary      = 4;
+  double ot_pay           = 5;
+  double total_allowance  = 6;
+  double gross_pay        = 7;
+  double tax              = 8;   // ภาษีเงินได้บุคคลธรรมดา
+  double social_security  = 9;   // ประกันสังคม 5%
+  double provident_fund   = 10;  // กองทุนสำรองเลี้ยงชีพ
+  double total_deduction  = 11;
+  double net_pay          = 12;
+  string status           = 13;  // "calculated" | "error"
+  string error_message    = 14;
+}
+
+message PayrollBatchRequest {
+  int32  year              = 1;
+  int32  month             = 2;
+  repeated string employee_ids = 3; // empty = all active employees
+}
+
+message PayrollHistoryRequest {
+  string employee_id = 1;
+  int32  year        = 2;  // 0 = all years
+}
+
+message PayrollHistoryResponse {
+  repeated PayrollResult records = 1;
+}
