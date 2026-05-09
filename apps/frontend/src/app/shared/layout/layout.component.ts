@@ -3,126 +3,86 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 
+interface NavItem { label: string; icon: string; path: string; roles?: string[]; }
+
+const NAV: NavItem[] = [
+  { label: 'พนักงาน',      icon: '👥', path: '/employees' },
+  { label: 'เงินเดือน',    icon: '💰', path: '/payroll' },
+  { label: 'ผังองค์กร',   icon: '🏗️', path: '/org-chart' },
+  { label: 'การอนุมัติ',  icon: '✅', path: '/approvals' },
+  { label: 'Analytics',   icon: '📊', path: '/analytics', roles: ['admin','hr','finance'] },
+  { label: 'การเข้างาน',  icon: '📋', path: '/attendance', roles: ['admin','hr'] },
+];
+
 @Component({
   selector: 'app-layout',
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="layout">
-      <aside class="sidebar">
-        <div class="sidebar-brand">
-          <span class="brand-icon">🏢</span>
-          <span class="brand-name">ERP Platform</span>
+    <div class="flex h-screen overflow-hidden bg-gray-50 font-sarabun">
+
+      <!-- Sidebar -->
+      <aside class="w-60 flex flex-col shrink-0 bg-white border-r border-gray-100 shadow-sm">
+
+        <!-- Brand -->
+        <div class="flex items-center gap-2.5 px-4 py-4 border-b border-gray-100">
+          <span class="text-2xl">🏢</span>
+          <span class="font-bold text-gray-800 text-sm leading-tight">ERP Platform</span>
         </div>
 
-        <nav class="sidebar-nav">
-          <a routerLink="/employees" routerLinkActive="active" class="nav-item">
-            <span class="nav-icon">👥</span> พนักงาน
-          </a>
-          <a routerLink="/payroll" routerLinkActive="active" class="nav-item">
-            <span class="nav-icon">💰</span> เงินเดือน
-          </a>
-          @if (auth.isHR()) {
-            <a routerLink="/attendance" routerLinkActive="active" class="nav-item">
-              <span class="nav-icon">📋</span> การเข้างาน
+        <!-- Nav -->
+        <nav class="flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto">
+          @for (item of visibleNav(); track item.path) {
+            <a
+              [routerLink]="item.path" routerLinkActive="bg-primary-50 text-primary-600 font-semibold"
+              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500
+                     hover:bg-gray-50 hover:text-gray-800 transition-colors"
+            >
+              <span class="text-base w-5 text-center">{{ item.icon }}</span>
+              {{ item.label }}
             </a>
           }
         </nav>
 
-        <div class="sidebar-footer">
-          <div class="ws-status">
-            <span class="ws-dot" [class.connected]="ws.connected()"></span>
-            {{ ws.connected() ? 'Real-time' : 'Offline' }}
+        <!-- Footer -->
+        <div class="p-3 border-t border-gray-100 flex flex-col gap-2">
+          <!-- WS status -->
+          <div class="flex items-center gap-1.5 px-1">
+            <span class="w-2 h-2 rounded-full transition-colors"
+              [class]="ws.connected() ? 'bg-green-400 shadow-[0_0_0_3px_rgba(74,222,128,0.2)]' : 'bg-gray-300'">
+            </span>
+            <span class="text-xs text-gray-400">{{ ws.connected() ? 'Real-time' : 'Offline' }}</span>
           </div>
-          <div class="user-info">
-            <span class="user-email">{{ auth.user()?.email }}</span>
-            <span class="badge info">{{ auth.user()?.role }}</span>
+          <!-- User -->
+          <div class="flex items-center justify-between px-1">
+            <span class="text-xs text-gray-500 truncate max-w-[130px]">{{ auth.user()?.email }}</span>
+            <span class="text-xs bg-primary-100 text-primary-700 font-medium px-2 py-0.5 rounded-full">
+              {{ auth.user()?.role }}
+            </span>
           </div>
-          <button class="btn ghost logout-btn" (click)="auth.logout()">ออกจากระบบ</button>
+          <button
+            (click)="auth.logout()"
+            class="w-full text-xs text-gray-500 border border-gray-200 rounded-lg py-1.5
+                   hover:bg-gray-50 transition"
+          >
+            ออกจากระบบ
+          </button>
         </div>
       </aside>
 
-      <main class="main-content">
+      <!-- Main -->
+      <main class="flex-1 overflow-y-auto p-6">
         <router-outlet />
       </main>
     </div>
   `,
-  styles: [`
-    .layout { display: flex; height: 100vh; overflow: hidden; }
-
-    .sidebar {
-      width: var(--sidebar-w);
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-    }
-    .sidebar-brand {
-      padding: 1.25rem 1rem;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: .6rem;
-      font-weight: 700;
-      font-size: 1rem;
-    }
-    .brand-icon { font-size: 1.4rem; }
-
-    .sidebar-nav {
-      flex: 1;
-      padding: .75rem .5rem;
-      display: flex;
-      flex-direction: column;
-      gap: .25rem;
-    }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: .6rem;
-      padding: .6rem .75rem;
-      border-radius: var(--radius);
-      text-decoration: none;
-      color: var(--text-muted);
-      font-size: .9rem;
-      transition: background .15s, color .15s;
-      &:hover { background: var(--bg); color: var(--text); }
-      &.active { background: #eff6ff; color: var(--primary); font-weight: 600; }
-    }
-    .nav-icon { width: 20px; text-align: center; }
-
-    .sidebar-footer {
-      padding: 1rem;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
-    }
-    .ws-status {
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-      font-size: .75rem;
-      color: var(--text-muted);
-    }
-    .ws-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--border);
-      &.connected { background: var(--success); box-shadow: 0 0 0 2px rgba(14,159,110,.2); }
-    }
-    .user-info {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .user-email { font-size: .75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
-    .logout-btn { width: 100%; justify-content: center; font-size: .8rem; padding: .4rem; }
-
-    .main-content { flex: 1; overflow-y: auto; padding: 1.5rem; }
-  `],
 })
 export class LayoutComponent {
   readonly auth = inject(AuthService);
   readonly ws   = inject(WebSocketService);
+
+  visibleNav() {
+    const role = this.auth.user()?.role ?? '';
+    return NAV.filter(n => !n.roles || n.roles.includes(role));
+  }
 }

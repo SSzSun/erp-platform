@@ -3,252 +3,172 @@ import { HttpClient } from '@angular/common/http';
 import { DecimalPipe, DatePipe } from '@angular/common';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { environment } from '../../../../environments/environment';
-import { AttendanceEvent } from '../../../core/models/employee.model';
 
 interface PayrollSummary {
-  employeeId: string;
-  year: number;
-  month: number;
-  grossPay: number;
-  netPay: number;
-  tax: number;
-  socialSecurity: number;
-  status: string;
+  employeeId: string; year: number; month: number;
+  grossPay: number; netPay: number; tax: number; socialSecurity: number; status: string;
 }
-
-const MONTH_TH = ['', 'ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
-                       'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const MONTH_TH = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
 @Component({
   selector: 'app-payroll-dashboard',
   standalone: true,
   imports: [DecimalPipe, DatePipe],
   template: `
-    <div class="page-header">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-5">
       <div>
-        <h2>Payroll Dashboard</h2>
-        <p class="subtitle">{{ currentMonthLabel() }}</p>
+        <h2 class="text-xl font-bold text-gray-800">Payroll Dashboard</h2>
+        <p class="text-sm text-gray-400 mt-0.5">{{ currentMonthLabel() }}</p>
       </div>
-      <button class="btn primary" (click)="runBatch()" [disabled]="running()">
-        @if (running()) { <span class="spinner"></span> }
+      <button
+        (click)="runBatch()" [disabled]="running()"
+        class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white
+               text-sm font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        @if (running()) {
+          <span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+        }
         คำนวณเงินเดือน
       </button>
     </div>
 
-    <!-- KPI Cards -->
-    <div class="kpi-grid">
-      <div class="card kpi-card">
-        <div class="kpi-label">รวม Gross Pay</div>
-        <div class="kpi-value">{{ totalGross() | number:'1.0-0' }} ฿</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="kpi-label">รวม Net Pay</div>
-        <div class="kpi-value primary">{{ totalNet() | number:'1.0-0' }} ฿</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="kpi-label">รวมภาษี</div>
-        <div class="kpi-value">{{ totalTax() | number:'1.0-0' }} ฿</div>
-      </div>
-      <div class="card kpi-card">
-        <div class="kpi-label">พนักงานทั้งหมด</div>
-        <div class="kpi-value">{{ payrolls().length }} คน</div>
-      </div>
+    <!-- KPI -->
+    <div class="grid grid-cols-4 gap-4 mb-5">
+      @for (kpi of kpis(); track kpi.label) {
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+          <p class="text-xs text-gray-400 mb-1">{{ kpi.label }}</p>
+          <p class="text-2xl font-bold" [class]="kpi.color ?? 'text-gray-800'">{{ kpi.value }}</p>
+        </div>
+      }
     </div>
 
-    <div class="dashboard-grid">
+    <!-- Grid -->
+    <div class="grid grid-cols-[1fr_340px] gap-4">
+
       <!-- Payroll table -->
-      <div class="card table-section">
-        <h3>รายละเอียดเงินเดือน</h3>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h3 class="font-semibold text-gray-700 mb-3">รายละเอียดเงินเดือน</h3>
         @if (payrolls().length) {
-          <table class="data-table" style="margin-top:.75rem">
+          <table class="w-full text-sm border-collapse">
             <thead>
-              <tr>
-                <th>พนักงาน</th>
-                <th style="text-align:right">Gross</th>
-                <th style="text-align:right">ภาษี</th>
-                <th style="text-align:right">ประกันสังคม</th>
-                <th style="text-align:right">Net Pay</th>
-                <th>สถานะ</th>
+              <tr class="border-b border-gray-100">
+                <th class="pb-2 text-left text-xs font-semibold text-gray-400 uppercase">พนักงาน</th>
+                <th class="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">Gross</th>
+                <th class="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">ภาษี</th>
+                <th class="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">ประกันสังคม</th>
+                <th class="pb-2 text-right text-xs font-semibold text-gray-400 uppercase">Net Pay</th>
+                <th class="pb-2 text-left text-xs font-semibold text-gray-400 uppercase">สถานะ</th>
               </tr>
             </thead>
             <tbody>
               @for (p of payrolls(); track p.employeeId) {
-                <tr>
-                  <td><code>{{ p.employeeId.slice(0,8) }}…</code></td>
-                  <td style="text-align:right">{{ p.grossPay | number:'1.0-0' }}</td>
-                  <td style="text-align:right">{{ p.tax | number:'1.0-0' }}</td>
-                  <td style="text-align:right">{{ p.socialSecurity | number:'1.0-0' }}</td>
-                  <td style="text-align:right"><strong>{{ p.netPay | number:'1.0-0' }}</strong></td>
-                  <td><span class="badge success">{{ p.status }}</span></td>
+                <tr class="border-b border-gray-50 hover:bg-gray-50/60">
+                  <td class="py-2.5"><code class="text-xs bg-gray-100 px-2 py-0.5 rounded">{{ p.employeeId.slice(0,8) }}…</code></td>
+                  <td class="py-2.5 text-right text-gray-600">{{ p.grossPay | number:'1.0-0' }}</td>
+                  <td class="py-2.5 text-right text-gray-600">{{ p.tax | number:'1.0-0' }}</td>
+                  <td class="py-2.5 text-right text-gray-600">{{ p.socialSecurity | number:'1.0-0' }}</td>
+                  <td class="py-2.5 text-right font-semibold text-gray-800">{{ p.netPay | number:'1.0-0' }}</td>
+                  <td class="py-2.5">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{{ p.status }}</span>
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
         } @else {
-          <p class="empty">ยังไม่มีข้อมูลเงินเดือนเดือนนี้</p>
+          <p class="text-sm text-gray-400 text-center py-8">ยังไม่มีข้อมูลเงินเดือนเดือนนี้</p>
         }
       </div>
 
       <!-- Real-time attendance feed -->
-      <div class="card feed-section">
-        <div class="feed-header">
-          <h3>Attendance Feed</h3>
-          <div class="ws-indicator">
-            <span class="ws-dot" [class.connected]="ws.connected()"></span>
-            Real-time
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-700">Attendance Feed</h3>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full" [class]="ws.connected() ? 'bg-green-400 animate-pulse' : 'bg-gray-300'"></span>
+            <span class="text-xs text-gray-400">Real-time</span>
           </div>
         </div>
 
-        <div class="feed-list">
-          @for (event of ws.attendanceEvents(); track event.timestamp) {
-            <div class="feed-item" [class.check-out]="event.scanType === 'CHECK_OUT'">
-              <div class="feed-icon">
-                {{ event.scanType === 'CHECK_IN' ? '🟢' : '🔴' }}
-              </div>
-              <div class="feed-body">
-                <span class="feed-type">{{ event.scanType === 'CHECK_IN' ? 'เข้างาน' : 'ออกงาน' }}</span>
-                <span class="feed-emp">{{ event.employeeId.slice(0,8) }}…</span>
-                @if (event.location) {
-                  <span class="feed-loc">📍 {{ event.location }}</span>
+        <div class="flex flex-col gap-2 overflow-y-auto flex-1 max-h-[520px]">
+          @for (ev of ws.attendanceEvents(); track ev.timestamp) {
+            <div class="flex items-center gap-2.5 p-2.5 rounded-lg border-l-2 animate-fade-in"
+              [class]="ev.scanType === 'CHECK_IN'
+                ? 'bg-green-50 border-green-400'
+                : 'bg-red-50 border-red-400'">
+              <span class="text-base shrink-0">{{ ev.scanType === 'CHECK_IN' ? '🟢' : '🔴' }}</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-gray-700">
+                  {{ ev.scanType === 'CHECK_IN' ? 'เข้างาน' : 'ออกงาน' }}
+                </p>
+                <p class="text-xs text-gray-400 truncate">{{ ev.employeeId.slice(0,8) }}…</p>
+                @if (ev.location) {
+                  <p class="text-xs text-gray-400">📍 {{ ev.location }}</p>
                 }
               </div>
-              <span class="feed-time">{{ event.timestamp | date:'HH:mm:ss' }}</span>
+              <span class="text-xs text-gray-400 shrink-0">{{ ev.timestamp | date:'HH:mm:ss' }}</span>
             </div>
           } @empty {
-            <p class="empty">รอ event การเข้างาน...</p>
+            <p class="text-sm text-gray-400 text-center py-8">รอ event การเข้างาน...</p>
           }
         </div>
       </div>
     </div>
 
+    <!-- Toast -->
     @if (batchMsg()) {
-      <div class="toast" [class.error]="batchError()">{{ batchMsg() }}</div>
+      <div class="fixed bottom-5 right-5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-fade-in"
+        [class]="batchError() ? 'bg-red-500' : 'bg-green-500'">
+        {{ batchMsg() }}
+      </div>
     }
   `,
-  styles: [`
-    .page-header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      margin-bottom: 1.25rem;
-      h2 { font-size: 1.25rem; font-weight: 700; }
-    }
-    .subtitle { font-size: .875rem; color: var(--text-muted); margin-top: .2rem; }
-
-    .kpi-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 1rem; margin-bottom: 1.25rem;
-    }
-    .kpi-card { text-align: center; }
-    .kpi-label { font-size: .8rem; color: var(--text-muted); margin-bottom: .35rem; }
-    .kpi-value { font-size: 1.5rem; font-weight: 700; &.primary { color: var(--primary); } }
-
-    .dashboard-grid { display: grid; grid-template-columns: 1fr 360px; gap: 1rem; }
-    .table-section h3, .feed-section h3 { font-size: 1rem; font-weight: 600; }
-
-    .feed-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
-    .ws-indicator { display: flex; align-items: center; gap: .4rem; font-size: .75rem; color: var(--text-muted); }
-    .ws-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--border);
-      &.connected { background: var(--success); animation: pulse 2s infinite; }
-    }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(14,159,110,.4); }
-      50% { box-shadow: 0 0 0 4px rgba(14,159,110,0); }
-    }
-
-    .feed-list { display: flex; flex-direction: column; gap: .5rem; max-height: 500px; overflow-y: auto; }
-    .feed-item {
-      display: flex; align-items: center; gap: .75rem;
-      padding: .5rem .75rem; border-radius: var(--radius);
-      background: #f0fdf4; border-left: 3px solid var(--success);
-      &.check-out { background: #fff5f5; border-left-color: var(--danger); }
-    }
-    .feed-body { flex: 1; display: flex; flex-direction: column; gap: .1rem; }
-    .feed-type { font-size: .8rem; font-weight: 600; }
-    .feed-emp, .feed-loc { font-size: .75rem; color: var(--text-muted); }
-    .feed-time { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
-
-    .empty { color: var(--text-muted); font-size: .875rem; padding: 1rem 0; text-align: center; }
-
-    .spinner {
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
-      border-radius: 50%; animation: spin .6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .toast {
-      position: fixed; bottom: 1.5rem; right: 1.5rem;
-      background: var(--success); color: #fff;
-      padding: .75rem 1.25rem; border-radius: var(--radius);
-      box-shadow: var(--shadow); font-size: .875rem;
-      animation: fadeIn .3s ease;
-      &.error { background: var(--danger); }
-    }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
-  `],
 })
 export class PayrollDashboardComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   readonly ws = inject(WebSocketService);
 
-  payrolls  = signal<PayrollSummary[]>([]);
-  running   = signal(false);
-  batchMsg  = signal('');
+  payrolls   = signal<PayrollSummary[]>([]);
+  running    = signal(false);
+  batchMsg   = signal('');
   batchError = signal(false);
-
-  totalGross = computed(() => this.payrolls().reduce((s, p) => s + p.grossPay, 0));
-  totalNet   = computed(() => this.payrolls().reduce((s, p) => s + p.netPay,   0));
-  totalTax   = computed(() => this.payrolls().reduce((s, p) => s + p.tax,      0));
-
   private now = new Date();
-  currentMonthLabel = signal(`${MONTH_TH[this.now.getMonth() + 1]} ${this.now.getFullYear() + 543}`);
-
+  currentMonthLabel = signal(`${MONTH_TH[this.now.getMonth()+1]} ${this.now.getFullYear()+543}`);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  ngOnInit() {
-    this.loadPayrolls();
-    window.addEventListener('payroll:ready', this.onPayrollReady);
-  }
+  kpis = computed(() => [
+    { label: 'รวม Gross Pay', value: (this.payrolls().reduce((s,p)=>s+p.grossPay,0)|0).toLocaleString()+' ฿' },
+    { label: 'รวม Net Pay',   value: (this.payrolls().reduce((s,p)=>s+p.netPay,0)|0).toLocaleString()+' ฿', color: 'text-primary-600' },
+    { label: 'รวมภาษี',       value: (this.payrolls().reduce((s,p)=>s+p.tax,0)|0).toLocaleString()+' ฿' },
+    { label: 'พนักงาน',       value: this.payrolls().length+' คน' },
+  ]);
 
-  ngOnDestroy() {
-    window.removeEventListener('payroll:ready', this.onPayrollReady);
-    if (this.toastTimer) clearTimeout(this.toastTimer);
-  }
+  ngOnInit() { this.loadPayrolls(); window.addEventListener('payroll:ready', this.onPayrollReady); }
+  ngOnDestroy() { window.removeEventListener('payroll:ready', this.onPayrollReady); if(this.toastTimer) clearTimeout(this.toastTimer); }
 
   loadPayrolls() {
-    const y = this.now.getFullYear();
-    const m = this.now.getMonth() + 1;
+    const y=this.now.getFullYear(), m=this.now.getMonth()+1;
     this.http.get<PayrollSummary[]>(`${environment.apiUrl}/payroll?year=${y}&month=${m}`)
-      .subscribe({ next: data => this.payrolls.set(data), error: () => {} });
+      .subscribe({ next: d=>this.payrolls.set(d), error:()=>{} });
   }
 
   runBatch() {
     this.running.set(true);
-    const y = this.now.getFullYear();
-    const m = this.now.getMonth() + 1;
-    this.http.post<PayrollSummary[]>(`${environment.apiUrl}/payroll/batch`, { year: y, month: m })
-      .subscribe({
-        next: results => {
-          this.payrolls.set(results);
-          this.running.set(false);
-          this.showToast(`คำนวณเงินเดือนเสร็จสิ้น ${results.length} คน`, false);
-        },
-        error: () => {
-          this.running.set(false);
-          this.showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', true);
-        },
-      });
+    const y=this.now.getFullYear(), m=this.now.getMonth()+1;
+    this.http.post<PayrollSummary[]>(`${environment.apiUrl}/payroll/batch`,{year:y,month:m}).subscribe({
+      next: r => { this.payrolls.set(r); this.running.set(false); this.toast(`คำนวณเสร็จ ${r.length} คน`,false); },
+      error: () => { this.running.set(false); this.toast('เกิดข้อผิดพลาด กรุณาลองใหม่',true); },
+    });
   }
 
-  private onPayrollReady = (e: Event) => {
-    const { year, month, netPay } = (e as CustomEvent).detail;
-    this.showToast(`เงินเดือนออกแล้ว ${MONTH_TH[month]} — Net ${netPay.toLocaleString()} ฿`, false);
+  private onPayrollReady = (e:Event) => {
+    const { month, netPay } = (e as CustomEvent).detail;
+    this.toast(`เงินเดือนออกแล้ว ${MONTH_TH[month]} — Net ${netPay.toLocaleString()} ฿`, false);
   };
-
-  private showToast(msg: string, isError: boolean) {
-    this.batchMsg.set(msg);
-    this.batchError.set(isError);
-    if (this.toastTimer) clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => this.batchMsg.set(''), 4000);
+  private toast(msg:string, err:boolean) {
+    this.batchMsg.set(msg); this.batchError.set(err);
+    if(this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(()=>this.batchMsg.set(''), 4000);
   }
 }

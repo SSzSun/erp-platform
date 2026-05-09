@@ -9,86 +9,65 @@ import { WebSocketService } from '../../../core/services/websocket.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="login-page">
-      <div class="login-card card">
-        <div class="login-header">
-          <h1>ERP Platform</h1>
-          <p>ระบบบริหารทรัพยากรบุคคล</p>
+    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-700 to-primary-600 px-4">
+      <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 flex flex-col gap-6">
+
+        <!-- Header -->
+        <div class="text-center">
+          <div class="text-4xl mb-2">🏢</div>
+          <h1 class="text-2xl font-bold text-primary-600">ERP Platform</h1>
+          <p class="text-sm text-gray-500 mt-1">ระบบบริหารทรัพยากรบุคคล</p>
         </div>
 
-        <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
-          <div class="form-group">
-            <label class="form-label">อีเมล</label>
+        <!-- Form -->
+        <form (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-600">อีเมล</label>
             <input
-              class="form-input"
-              [class.error]="emailTouched() && !email()"
-              type="email"
-              placeholder="admin@erp.local"
-              [(ngModel)]="emailValue"
-              name="email"
-              (blur)="emailTouched.set(true)"
-              required
+              class="px-3.5 py-2.5 border rounded-lg text-sm outline-none transition
+                     focus:border-primary-500 focus:ring-2 focus:ring-primary-100
+                     placeholder:text-gray-300"
+              [class.border-red-400]="emailTouched() && !emailValue"
+              [class.border-gray-200]="!(emailTouched() && !emailValue)"
+              type="email" placeholder="admin@erp.local"
+              [(ngModel)]="emailValue" name="email"
+              (blur)="emailTouched.set(true)" required
             />
           </div>
 
-          <div class="form-group">
-            <label class="form-label">รหัสผ่าน</label>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-600">รหัสผ่าน</label>
             <input
-              class="form-input"
-              [class.error]="passTouched() && !password()"
-              type="password"
-              placeholder="••••••••"
-              [(ngModel)]="passwordValue"
-              name="password"
-              (blur)="passTouched.set(true)"
-              required
+              class="px-3.5 py-2.5 border rounded-lg text-sm outline-none transition
+                     focus:border-primary-500 focus:ring-2 focus:ring-primary-100
+                     placeholder:text-gray-300"
+              [class.border-red-400]="passTouched() && !passwordValue"
+              [class.border-gray-200]="!(passTouched() && !passwordValue)"
+              type="password" placeholder="••••••••"
+              [(ngModel)]="passwordValue" name="password"
+              (blur)="passTouched.set(true)" required
             />
           </div>
 
           @if (error()) {
-            <p class="form-error" style="text-align:center">{{ error() }}</p>
+            <p class="text-sm text-red-500 text-center animate-fade-in">{{ error() }}</p>
           }
 
-          <button class="btn primary" type="submit" [disabled]="loading()">
-            @if (loading()) { <span class="spinner"></span> }
+          <button
+            class="w-full flex items-center justify-center gap-2 mt-1 py-2.5 rounded-lg
+                   bg-primary-600 hover:bg-primary-700 text-white font-semibold
+                   transition disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit" [disabled]="loading()"
+          >
+            @if (loading()) {
+              <span class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+            }
             เข้าสู่ระบบ
           </button>
         </form>
       </div>
     </div>
   `,
-  styles: [`
-    .login-page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #1e429f 0%, #1a56db 100%);
-    }
-    .login-card {
-      width: 100%;
-      max-width: 400px;
-      margin: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-    .login-header {
-      text-align: center;
-      h1 { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
-      p  { font-size: .875rem; color: var(--text-muted); margin-top: .25rem; }
-    }
-    form { display: flex; flex-direction: column; gap: 1rem; }
-    .btn { width: 100%; justify-content: center; padding: .75rem; font-size: 1rem; margin-top: .5rem; }
-    .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  `],
 })
 export class LoginComponent {
   private readonly authService = inject(AuthService);
@@ -97,24 +76,17 @@ export class LoginComponent {
 
   emailValue    = '';
   passwordValue = '';
-
-  email    = signal('');
-  password = signal('');
-  loading  = signal(false);
-  error    = signal('');
-  emailTouched = signal(false);
-  passTouched  = signal(false);
+  loading       = signal(false);
+  error         = signal('');
+  emailTouched  = signal(false);
+  passTouched   = signal(false);
 
   onSubmit() {
     if (!this.emailValue || !this.passwordValue) return;
     this.loading.set(true);
     this.error.set('');
-
     this.authService.login(this.emailValue, this.passwordValue).subscribe({
-      next: () => {
-        this.wsService.connect();
-        this.router.navigate(['/employees']);
-      },
+      next: () => { this.wsService.connect(); this.router.navigate(['/employees']); },
       error: (err) => {
         this.error.set(err?.error?.message ?? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
         this.loading.set(false);

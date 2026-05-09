@@ -6,11 +6,13 @@ import { environment } from '../../../../environments/environment';
 import { Employee, EmployeeStatus } from '../../../core/models/employee.model';
 
 const STATUS_LABEL: Record<EmployeeStatus, string> = {
-  active: 'ทำงานอยู่', inactive: 'ไม่ใช้งาน',
-  resigned: 'ลาออก', terminated: 'เลิกจ้าง',
+  active: 'ทำงานอยู่', inactive: 'ไม่ใช้งาน', resigned: 'ลาออก', terminated: 'เลิกจ้าง',
 };
-const STATUS_BADGE: Record<EmployeeStatus, string> = {
-  active: 'success', inactive: 'warning', resigned: 'danger', terminated: 'danger',
+const STATUS_CLS: Record<EmployeeStatus, string> = {
+  active:     'bg-green-100 text-green-700',
+  inactive:   'bg-yellow-100 text-yellow-700',
+  resigned:   'bg-red-100 text-red-600',
+  terminated: 'bg-red-100 text-red-600',
 };
 
 @Component({
@@ -18,71 +20,78 @@ const STATUS_BADGE: Record<EmployeeStatus, string> = {
   standalone: true,
   imports: [FormsModule, ScrollingModule],
   template: `
-    <div class="page-header">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-5">
       <div>
-        <h2>รายชื่อพนักงาน</h2>
-        <p class="subtitle">ทั้งหมด {{ filteredCount() }} คน</p>
+        <h2 class="text-xl font-bold text-gray-800">รายชื่อพนักงาน</h2>
+        <p class="text-sm text-gray-400 mt-0.5">ทั้งหมด {{ filteredCount() }} คน</p>
       </div>
-      <div class="header-actions">
-        <input
-          class="form-input search-input"
-          type="search"
-          placeholder="ค้นหาชื่อ / รหัส / ตำแหน่ง..."
-          [(ngModel)]="searchValue"
-          (ngModelChange)="search.set($event)"
-        />
-      </div>
+      <input
+        class="w-72 px-3.5 py-2 border border-gray-200 rounded-lg text-sm outline-none
+               focus:border-primary-500 focus:ring-2 focus:ring-primary-100 placeholder:text-gray-300"
+        type="search" placeholder="ค้นหาชื่อ / รหัส / ตำแหน่ง..."
+        [(ngModel)]="searchValue" (ngModelChange)="search.set($event)"
+      />
     </div>
 
+    <!-- Loading -->
     @if (loading()) {
-      <div class="loading-state">
-        <div class="spinner-lg"></div>
-        <p>กำลังโหลดข้อมูล...</p>
+      <div class="flex flex-col items-center gap-3 py-20 text-gray-400">
+        <div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <p class="text-sm">กำลังโหลดข้อมูล...</p>
       </div>
     } @else if (error()) {
-      <div class="card error-state">
-        <p>{{ error() }}</p>
-        <button class="btn ghost" (click)="load()">ลองอีกครั้ง</button>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center flex flex-col items-center gap-3">
+        <p class="text-gray-500 text-sm">{{ error() }}</p>
+        <button class="px-4 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50" (click)="load()">
+          ลองอีกครั้ง
+        </button>
       </div>
     } @else {
-      <div class="card table-card">
-        <!-- Virtual scroll: rows are 52px tall each -->
-        <cdk-virtual-scroll-viewport itemSize="52" class="virtual-viewport">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>รหัส</th>
-                <th>ชื่อ-นามสกุล</th>
-                <th>แผนก</th>
-                <th>ตำแหน่ง</th>
-                <th style="text-align:right">เงินเดือน</th>
-                <th>สถานะ</th>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <cdk-virtual-scroll-viewport itemSize="56" class="virtual-viewport">
+          <table class="w-full border-collapse text-sm">
+            <thead class="sticky top-0 z-10">
+              <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">รหัส</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">ชื่อ-นามสกุล</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">แผนก</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">ตำแหน่ง</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">เงินเดือน</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">สถานะ</th>
               </tr>
             </thead>
             <tbody>
               @for (emp of filtered(); track emp.id) {
-                <tr>
-                  <td><code>{{ emp.employeeCode }}</code></td>
-                  <td>
-                    <div class="name-cell">
-                      <span class="avatar">{{ initials(emp) }}</span>
-                      <div>
-                        <div>{{ emp.firstNameTh }} {{ emp.lastNameTh }}</div>
-                        <div class="text-muted">{{ emp.firstNameEn }} {{ emp.lastNameEn }}</div>
+                <tr class="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                  <td class="px-4 py-3">
+                    <code class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ emp.employeeCode }}</code>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full bg-primary-600 text-white text-xs font-bold
+                                  flex items-center justify-center shrink-0">
+                        {{ initials(emp) }}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="font-medium text-gray-800 truncate">{{ emp.firstNameTh }} {{ emp.lastNameTh }}</div>
+                        <div class="text-xs text-gray-400 truncate">{{ emp.firstNameEn }} {{ emp.lastNameEn }}</div>
                       </div>
                     </div>
                   </td>
-                  <td>{{ emp.department?.name ?? '—' }}</td>
-                  <td>{{ emp.position ?? '—' }}</td>
-                  <td style="text-align:right">{{ emp.salary | number:'1.0-0' }} ฿</td>
-                  <td>
-                    <span class="badge {{ STATUS_BADGE[emp.status] }}">
+                  <td class="px-4 py-3 text-gray-600">{{ emp.department?.name ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-600">{{ emp.position ?? '—' }}</td>
+                  <td class="px-4 py-3 text-right font-medium text-gray-800">
+                    {{ emp.salary | number:'1.0-0' }} ฿
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full {{ STATUS_CLS[emp.status] }}">
                       {{ STATUS_LABEL[emp.status] }}
                     </span>
                   </td>
                 </tr>
               } @empty {
-                <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted)">ไม่พบข้อมูล</td></tr>
+                <tr><td colspan="6" class="py-12 text-center text-sm text-gray-400">ไม่พบข้อมูล</td></tr>
               }
             </tbody>
           </table>
@@ -90,49 +99,18 @@ const STATUS_BADGE: Record<EmployeeStatus, string> = {
       </div>
     }
   `,
-  styles: [`
-    .page-header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      margin-bottom: 1.25rem;
-      h2 { font-size: 1.25rem; font-weight: 700; }
-    }
-    .subtitle { font-size: .875rem; color: var(--text-muted); margin-top: .2rem; }
-    .search-input { width: 280px; }
-    .table-card { padding: 0; overflow: hidden; }
-    .virtual-viewport { height: calc(100vh - 220px); }
-    .name-cell { display: flex; align-items: center; gap: .75rem; }
-    .avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: var(--primary); color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .75rem; font-weight: 700; flex-shrink: 0;
-    }
-    .text-muted { font-size: .75rem; color: var(--text-muted); }
-    code { font-size: .8rem; background: var(--bg); padding: .15rem .4rem; border-radius: 4px; }
-    .loading-state {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 1rem; padding: 4rem; color: var(--text-muted);
-    }
-    .spinner-lg {
-      width: 40px; height: 40px;
-      border: 3px solid var(--border); border-top-color: var(--primary);
-      border-radius: 50%; animation: spin .8s linear infinite;
-    }
-    .error-state { text-align: center; padding: 2rem; display: flex; flex-direction: column; gap: 1rem; align-items: center; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  `],
 })
 export class EmployeeListComponent implements OnInit {
   private readonly http = inject(HttpClient);
 
   readonly STATUS_LABEL = STATUS_LABEL;
-  readonly STATUS_BADGE = STATUS_BADGE;
+  readonly STATUS_CLS   = STATUS_CLS;
 
-  employees = signal<Employee[]>([]);
-  search    = signal('');
-  loading   = signal(true);
-  error     = signal('');
-  searchValue = '';
+  employees     = signal<Employee[]>([]);
+  search        = signal('');
+  loading       = signal(true);
+  error         = signal('');
+  searchValue   = '';
 
   filtered = computed(() => {
     const q = this.search().toLowerCase().trim();
@@ -140,11 +118,9 @@ export class EmployeeListComponent implements OnInit {
     return this.employees().filter(e =>
       e.firstNameTh.includes(q) || e.lastNameTh.includes(q) ||
       e.firstNameEn.toLowerCase().includes(q) || e.lastNameEn.toLowerCase().includes(q) ||
-      e.employeeCode.toLowerCase().includes(q) ||
-      (e.position ?? '').toLowerCase().includes(q)
+      e.employeeCode.toLowerCase().includes(q) || (e.position ?? '').toLowerCase().includes(q)
     );
   });
-
   filteredCount = computed(() => this.filtered().length);
 
   ngOnInit() { this.load(); }
@@ -158,7 +134,5 @@ export class EmployeeListComponent implements OnInit {
     });
   }
 
-  initials(emp: Employee): string {
-    return (emp.firstNameEn[0] ?? '') + (emp.lastNameEn[0] ?? '');
-  }
+  initials(emp: Employee) { return (emp.firstNameEn[0] ?? '') + (emp.lastNameEn[0] ?? ''); }
 }

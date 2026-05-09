@@ -1,95 +1,22 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --primary:      #1a56db;
-  --primary-dark: #1e429f;
-  --success:      #0e9f6e;
-  --danger:       #f05252;
-  --warning:      #ff5a1f;
-  --bg:           #f3f4f6;
-  --surface:      #ffffff;
-  --border:       #e5e7eb;
-  --text:         #111827;
-  --text-muted:   #6b7280;
-  --sidebar-w:    240px;
-  --radius:       8px;
-  --shadow:       0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  html, body { @apply h-full font-sarabun text-gray-900 bg-gray-50; }
+  * { box-sizing: border-box; }
 }
 
-html, body {
-  height: 100%;
-  font-family: 'Sarabun', sans-serif;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--bg);
-}
+@layer components {
+  /* Virtual scroll needs explicit height — can't be done with Tailwind alone */
+  .virtual-viewport { height: calc(100vh - 220px); }
 
-/* ── Utilities ── */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.5rem;
+  /* CDK drag placeholder */
+  .cdk-drag-placeholder { @apply opacity-30 border-2 border-dashed border-primary-500 rounded-xl; }
+  .cdk-drag-animating   { transition: transform 250ms cubic-bezier(0,0,0.2,1); }
+  .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
+    transition: transform 250ms cubic-bezier(0,0,0.2,1);
+  }
 }
-
-.badge {
-  display: inline-block;
-  padding: .2rem .6rem;
-  border-radius: 9999px;
-  font-size: .75rem;
-  font-weight: 600;
-  &.success { background: #d1fae5; color: #065f46; }
-  &.danger  { background: #fee2e2; color: #991b1b; }
-  &.warning { background: #fef3c7; color: #92400e; }
-  &.info    { background: #dbeafe; color: #1e40af; }
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .5rem 1.25rem;
-  border-radius: var(--radius);
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: .875rem;
-  font-weight: 500;
-  transition: opacity .15s;
-  &:disabled { opacity: .5; cursor: not-allowed; }
-  &.primary  { background: var(--primary); color: #fff; }
-  &.primary:hover:not(:disabled) { background: var(--primary-dark); }
-  &.ghost    { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  &.ghost:hover:not(:disabled) { background: var(--bg); }
-}
-
-/* ── Form ── */
-.form-group { display: flex; flex-direction: column; gap: .4rem; }
-.form-label { font-size: .875rem; font-weight: 500; color: var(--text-muted); }
-.form-input {
-  padding: .6rem .875rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-family: inherit;
-  font-size: .9rem;
-  outline: none;
-  transition: border-color .15s;
-  &:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.15); }
-  &.error { border-color: var(--danger); }
-}
-.form-error { font-size: .8rem; color: var(--danger); }
-
-/* ── Table ── */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  th, td { padding: .75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
-  th { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--bg); }
-  tr:hover td { background: #f9fafb; }
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
