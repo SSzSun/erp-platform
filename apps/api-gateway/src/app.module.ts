@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Department, Employee, RefreshToken, Role, User } from './database/entities';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { GrpcClientModule } from './grpc/grpc-client.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { UsersModule } from './users/users.module';
 
     AuthModule,
     UsersModule,
+    GrpcClientModule,
+    GatewayModule,
   ],
 })
 export class AppModule {}

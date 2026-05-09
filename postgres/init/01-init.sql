@@ -15,5 +15,41 @@ GRANT USAGE ON SCHEMA public TO erp_readonly;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT ON TABLES TO erp_readonly;
 
--- Timezone
 SET timezone = 'Asia/Bangkok';
+
+-- ── Attendance logs (high-write table from fingerprint scanners) ──────────────
+CREATE TABLE IF NOT EXISTS attendance_logs (
+  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID        NOT NULL,
+  scan_type   TEXT        NOT NULL CHECK (scan_type IN ('CHECK_IN','CHECK_OUT')),
+  scanned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  device_id   TEXT,
+  location    TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_emp_date
+  ON attendance_logs (employee_id, (scanned_at::date));
+
+-- ── Payroll records ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS payroll_records (
+  id               UUID           PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id      UUID           NOT NULL,
+  year             INT            NOT NULL,
+  month            INT            NOT NULL,
+  base_salary      NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  ot_pay           NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  total_allowance  NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  gross_pay        NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  tax              NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  social_security  NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  provident_fund   NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  total_deduction  NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  net_pay          NUMERIC(12,2)  NOT NULL DEFAULT 0,
+  status           TEXT           NOT NULL DEFAULT 'calculated',
+  calculated_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_id, year, month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_emp_period
+  ON payroll_records (employee_id, year, month);
